@@ -254,8 +254,8 @@ void Aftr::GLViewGaneshFinalProject::loadMap()
        // Handle selection of each item in the dropdown
        switch (item_current) {
        case 1:
-           lat = 39.983334;
-           lon = -82.983330;
+       lat= 39.329239;
+       lon = -82.101257;
            break;
        case 2: 
            lat = 45.41816514172032;
@@ -282,7 +282,8 @@ void Aftr::GLViewGaneshFinalProject::loadMap()
    }
    ImGui::PopStyleColor();
    if (ImGui::Button("Enter")) {
-       getChunk(lat, lon);
+       std::string type = "tm2";
+       getChunk(lat, lon,type);
    }
    ImGui::SameLine(0, 20);
    if (ImGui::Button("Reset")) {
@@ -292,6 +293,56 @@ void Aftr::GLViewGaneshFinalProject::loadMap()
        deleteGrid();
    }
    ImGui::End();
+
+
+   ImGui::Begin("ISO surface Generation");
+   const char* visibilityItems[] = { "---Select a region---","Ohio", "Michigan", "California", "Colorado","Texas" };
+   static int current = 0;
+   ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 1.0f, 1.0f));
+   if (ImGui::Combo("##combo", &current, visibilityItems, IM_ARRAYSIZE(visibilityItems))) {
+       // Handle selection of each item in the dropdown
+       switch (current) {
+       case 1:
+           lat = 39.329239;
+           lon = -82.101257;
+           break;
+       case 2:
+           lat = 45.41816514172032;
+           lon = -84.62208688242518;
+           break;
+       case 3:
+           lat = 36.746841;
+           lon = -119.772591;
+           break;
+       case 4:
+           lat = 39.113014;
+           lon = -105.358887;
+           break;
+       case 5:
+           lat = 32.779167;
+           lon = -96.808891;
+           break;
+       default:
+           lat = 0;
+           lon = 0;
+           // Handle error case
+           break;
+       }
+   }
+   ImGui::PopStyleColor();
+   if (ImGui::Button("Enter")) {
+       std::string type = "vis";
+       getChunk(lat, lon,type);
+   }
+   ImGui::SameLine(0, 20);
+   if (ImGui::Button("Reset")) {
+       current = 0;
+       lat = 0;
+       lon = 0;
+       deleteGrid();
+   }
+   ImGui::End();
+
        });
    // Styling ImGui
    ImGuiStyle& style = ImGui::GetStyle();
@@ -301,7 +352,7 @@ void Aftr::GLViewGaneshFinalProject::loadMap()
 
 }
 
-void GLViewGaneshFinalProject::getChunk(double lat, double lon) {
+void GLViewGaneshFinalProject::getChunk(double lat, double lon, std::string type) {
     // if grid already exists removing it - Overriding
    int id =  worldLst->getIndexOfWO(this->heightField);
    if (id) {
@@ -317,7 +368,14 @@ void GLViewGaneshFinalProject::getChunk(double lat, double lon) {
     std::string payloadStr = payload.dump();
 
     // Set up endpoint URL - LAWN ApiServer (local)
-    std::string endpoint = "http://127.0.0.1:5000/chunk";
+    std::string endpoint = "";
+    if (type == "tm2") {
+    endpoint = "http://ounppm.eecs.ohio.edu:5000/temperature/now/chunk";
+    }
+    else {
+       endpoint = "http://ounppm.eecs.ohio.edu:5000/visibilty/now/chunk";
+
+    }
 
     // Initialize curl session
     CURL* curl = curl_easy_init();
@@ -357,6 +415,8 @@ void GLViewGaneshFinalProject::getChunk(double lat, double lon) {
 
     // Extract the chunks array
     json chunksJson = responseJson["chunk"];
+
+    if (type == "tm2") {
     int rows = chunksJson.size();
     int cols = chunksJson[0].size();
     std::vector<std::vector<double>> matrix(rows, std::vector<double>(cols));
@@ -366,6 +426,10 @@ void GLViewGaneshFinalProject::getChunk(double lat, double lon) {
         }
     }
     this->createGrid(matrix);
+    }
+    else {
+// TODO handling visibility here
+    }
 }
 
 
@@ -376,7 +440,6 @@ size_t curl_write_callback_string(void* contents, size_t size, size_t nmemb, std
         s->append((char*)contents, newLength);
     }
     catch (std::bad_alloc& e) {
-        //handle memory problem
         return 0;
     }
     return newLength;
@@ -417,7 +480,9 @@ void GLViewGaneshFinalProject::createGrid(std::vector<std::vector<double>> matri
         for (int j = 0; j < numCols; ++j) {
             gridpt[i][j] = VectorD(i, j, matrix[i][j]);
 
-            double temperature = gridpt[i][j].z;
+            double farhenheit = gridpt[i][j].z;
+            double temperature = (farhenheit - 32) * 5 / 9 + 273.15;
+
             float value = 0;
             if (temperature < 273.15) { // Below 32°F
                 value = 0;
@@ -443,7 +508,7 @@ void GLViewGaneshFinalProject::createGrid(std::vector<std::vector<double>> matri
     }
          // Creating a WOGrid with temperature value as height points (z axis) lat and lon as x and y axis
     this->heightField = WOGrid::New(gridpt, Vector(1, 1, 1), color);
-    this->heightField->setPosition(Vector(50, 50, -200));
+    this->heightField->setPosition(Vector(50, 50, 50));
     ModelMeshSkin& skin = heightField->getModel()->getModelDataShared()->getModelMeshes().at(0)->getSkins().at(0);
     skin.getMultiTextureSet().at(0).setTexRepeats(5.0f);
     skin.setAmbient(aftrColor4f(0.4f, 0.4f, 0.4f, 1.0f)); //Color of object when it is not in any light

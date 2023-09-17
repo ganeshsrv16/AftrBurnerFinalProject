@@ -29,7 +29,7 @@ public:
    virtual void updateWorld(); ///< Called once per frame
    virtual void loadMap(); ///< Called once at startup to build this module's scene
    virtual void createGrid(const std::vector<std::vector<double>> matrix);
-   virtual void getChunk(double lat, double lon);
+   virtual void getChunk(double lat, double lon, std::string type);
    virtual void onResizeWindow(GLsizei width, GLsizei height);
    virtual void onMouseDown(const SDL_MouseButtonEvent& e);
    virtual void onMouseUp(const SDL_MouseButtonEvent& e);
